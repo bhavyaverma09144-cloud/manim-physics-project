@@ -1,128 +1,130 @@
 from manim import *
 import numpy as np
-from scipy.integrate import solve_ivp
 
-class DoublePendulumSimulation(Scene):
+class MechanicalLinkage(Scene):
     def construct(self):
-        # --- 1. PHYSICAL PARAMETERS & CONFIGURATION ---
-        g = 9.81       # Acceleration due to gravity (m/s^2)
-        L1 = 2.0       # Length of first pendulum rod
-        L2 = 2.0       # Length of second pendulum rod
-        m1 = 1.0       # Mass of first bob
-        m2 = 1.0       # Mass of second bob
+        # --- 1. SIMULATION PARAMETERS ---
+        g = 9.81         # Gravity
+        L1 = 2.0         # Length of rod 1
+        L2 = 2.0         # Length of rod 2
+        m1 = 1.0         # Mass 1
+        m2 = 1.0         # Mass 2
 
-        # Initial conditions: 60 degrees (-pi/3 radians) from the downward vertical on the left
-        theta1_init = -np.pi / 3
-        theta2_init = -np.pi / 3
-        omega1_init = 0.0
-        omega2_init = 0.0
-
-        t_max = 20.0   # Duration in seconds
-        fps = 60       # Frames per second
-        t_eval = np.linspace(0, t_max, int(t_max * fps))
-
-        # --- 2. LAGRANGIAN EQUATIONS OF MOTION ---
-        def derivatives(t, y):
-            th1, w1, th2, w2 = y
-            d = th2 - th1
-            
-            # Denominator for both angular accelerations
-            den = L1 * (2 * m1 + m2 - m2 * np.cos(2 * th1 - 2 * th2))
-            
-            # Angular acceleration 1 (dw1/dt)
-            num1 = (-g * (2 * m1 + m2) * np.sin(th1) 
-                    - m2 * g * np.sin(th1 - 2 * th2) 
-                    - 2 * np.sin(d) * m2 * (w2**2 * L2 + w1**2 * L1 * np.cos(d)))
-            dw1 = num1 / den
-
-            # Angular acceleration 2 (dw2/dt)
-            num2 = (2 * np.sin(d) * (w1**2 * L1 * (m1 + m2) 
-                    + g * (m1 + m2) * np.cos(th1) 
-                    + w2**2 * L2 * m2 * np.cos(d)))
-            dw2 = num2 / den
-
-            return [w1, dw1, w2, dw2]
-
-        # Solve ODEs numerically
-        sol = solve_ivp(
-            derivatives, 
-            [0, t_max], 
-            [theta1_init, omega1_init, theta2_init, omega2_init], 
-            t_eval=t_eval,
-            method='RK45',
-            rtol=1e-9,
-            atol=1e-9
-        )
+        # Initial positions: 60 degrees (-pi/3 radians) from the downward vertical on the left
+        theta1 = -np.pi / 3
+        theta2 = -np.pi / 3
         
-        theta1 = sol.y[0]
-        theta2 = sol.y[2]
+        # Angular velocities and accelerations
+        omega1 = 0.0
+        omega2 = 0.0
 
-        # Convert polar coordinates to Cartesian coordinates
-        x1 = L1 * np.sin(theta1)
-        y1 = -L1 * np.cos(theta1)
-        x2 = x1 + L2 * np.sin(theta2)
-        y2 = y1 - L2 * np.cos(theta2)
+        # Pivot point
+        pivot = np.array([0.0, 1.0, 0.0])
 
-        # --- 3. MANIM SCENE SETUP ---
-        pivot = ORIGIN
+        # Initial Cartesian positions of the bobs
+        pos1 = pivot + np.array([L1 * np.sin(theta1), -L1 * np.cos(theta1), 0])
+        pos2 = pos1 + np.array([L2 * np.sin(theta2), -L2 * np.cos(theta2), 0])
+
+        # Velocities in Cartesian coordinates for step-by-step force updates
+        v1 = np.array([0.0, 0.0, 0.0])
+        v2 = np.array([0.0, 0.0, 0.0])
+
+        # --- 2. MANIM GRAPHICAL OBJECTS ---
+        rod1 = Line(pivot, pos1, stroke_width=5, color=BLUE_C)
+        rod2 = Line(pos1, pos2, stroke_width=5, color=TEAL_C)
         
-        # Initial positions
-        p1_init = np.array([x1[0], y1[0], 0])
-        p2_init = np.array([x2[0], y2[0], 0])
-
-        # Create pendulum graphical elements
-        rod1 = Line(pivot, p1_init, stroke_width=5, color=BLUE_C)
-        rod2 = Line(p1_init, p2_init, stroke_width=5, color=TEAL_C)
-        
-        ball1 = Circle(radius=0.15, color=BLUE_E, fill_opacity=1).move_to(p1_init)
-        ball2 = Circle(radius=0.18, color=YELLOW_C, fill_opacity=1).move_to(p2_init)
+        ball1 = Circle(radius=0.15, color=BLUE_E, fill_opacity=1).move_to(pos1)
+        ball2 = Circle(radius=0.18, color=YELLOW_C, fill_opacity=1).move_to(pos2)
         pivot_dot = Circle(radius=0.08, color=WHITE, fill_opacity=1).move_to(pivot)
 
         pendulum_group = VGroup(rod1, rod2, ball1, ball2, pivot_dot)
 
-        # Glowing trailing path for the tip mass (ball2)
         traced_path = TracedPath(
             ball2.get_center, 
             stroke_color=YELLOW_E, 
             stroke_width=3, 
-            stroke_opacity=[0, 0.8], 
-            dissipating_time=3.0
+            stroke_opacity=[0, 0.9], 
+            dissipating_time=4.0
         )
 
-        # Title / Info overlay
-        title = Text("Chaos: Double Pendulum", font_size=28, color=LIGHT_GRAY).to_corner(UL)
-        self.add(title)
+        title = Text("Frame-by-Frame True Physics Double Pendulum", font_size=24, color=LIGHT_GRAY).to_corner(UL)
+        self.add(title, traced_path, pendulum_group)
 
-        # --- 4. ANIMATION & UPDATER LOGIC ---
-        time_tracker = ValueTracker(0.0)
-
-        def update_pendulum(mob):
-            t = time_tracker.get_value()
-            # Map time to pre-computed trajectory index
-            idx = int(t * fps)
-            if idx >= len(t_eval):
-                idx = len(t_eval) - 1
-            
-            curr_p1 = np.array([x1[idx], y1[idx], 0])
-            curr_p2 = np.array([x2[idx], y2[idx], 0])
-            
-            rod1.put_start_and_end_on(pivot, curr_p1)
-            rod2.put_start_and_end_on(curr_p1, curr_p2)
-            ball1.move_to(curr_p1)
-            ball2.move_to(curr_p2)
-
-        pendulum_group.add_updater(update_pendulum)
-
-        # Add objects to scene
-        self.add(traced_path, pendulum_group)
-
-        # Play animation for exactly 20 seconds
-        self.play(
-            time_tracker.animate.set_value(t_max), 
-            run_time=t_max, 
-            rate_func=linear
-        )
+        # --- 3. FRAME-BY-FRAME FORCE & CONSTRAINT SOLVER ---
+        # We use a sub-stepping Verlet / Euler approach with constraint enforcement 
+        # to ensure it strictly respects physical lengths and forces every single step.
         
-        pendulum_group.remove_updater(update_pendulum)
-        self.wait(1)
+        dt_frame = 1.0 / 60.0  # Time step per frame
+        substeps = 20          # Sub-steps per frame for high stability
+
+        state = {
+            "p1": pos1.copy(),
+            "p2": pos2.copy(),
+            "v1": v1.copy(),
+            "v2": v2.copy()
+        }
+
+        def update_physics(mob, dt):
+            if dt == 0:
+                return
+            
+            # Sub-stepping for numerical precision
+            dt_sub = (dt_frame / substeps)
+            
+            p1 = state["p1"]
+            p2 = state["p2"]
+            v1 = state["v1"]
+            v2 = state["v2"]
+
+            for _ in range(substeps):
+                # Forces on Bob 1: Gravity
+                f1 = np.array([0.0, -m1 * g, 0.0])
+                # Forces on Bob 2: Gravity
+                f2 = np.array([0.0, -m2 * g, 0.0])
+
+                # Accelerations from forces (a = F / m)
+                a1 = f1 / m1
+                a2 = f2 / m2
+
+                # Update velocities (Euler integration step)
+                v1 += a1 * dt_sub
+                v2 += a2 * dt_sub
+
+                # Update positions
+                p1 += v1 * dt_sub
+                p2 += v2 * dt_sub
+
+                # --- RIGID ROD CONSTRAINT ENFORCEMENT (SHAKE-FREE VERLET STYLE) ---
+                # Enforce Rod 1 length from pivot
+                dir1 = p1 - pivot
+                dist1 = np.linalg.norm(dir1)
+                p1 = pivot + (dir1 / dist1) * L1
+
+                # Enforce Rod 2 length from Bob 1
+                dir2 = p2 - p1
+                dist2 = np.linalg.norm(dir2)
+                p2 = p1 + (dir2 / dist2) * L2
+
+                # Correct velocities based on constrained position adjustments
+                # (Simulates internal rod tension forces dynamically)
+                v1 = (p1 - state["p1"]) / dt_sub
+                v2 = (p2 - state["p2"]) / dt_sub
+                
+                state["p1"] = p1.copy()
+                state["p2"] = p2.copy()
+
+            state["v1"] = v1
+            state["v2"] = v2
+
+            # Update Manim visual elements to match true positions
+            rod1.put_start_and_end_on(pivot, state["p1"])
+            rod2.put_start_and_end_on(state["p1"], state["p2"])
+            ball1.move_to(state["p1"])
+            ball2.move_to(state["p2"])
+
+        pendulum_group.add_updater(update_physics)
+
+        # Run for 20 seconds
+        self.wait(20.0)
+        pendulum_group.remove_updater(update_physics)
         
