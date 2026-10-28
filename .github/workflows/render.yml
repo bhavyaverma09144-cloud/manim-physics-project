@@ -15,6 +15,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip' # Speeds up pip package installation
 
       - name: Install System Dependencies (FFmpeg, LaTeX, Cairo)
         run: |
@@ -32,6 +33,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install manim
 
+      - name: Restore Manim Media Cache
+        uses: actions/cache@v4
+        with:
+          path: media/
+          key: ${{ runner.os }}-manim-${{ hashFiles('scene.py') }}
+          restore-keys: |
+            ${{ runner.os }}-manim-
+
       - name: Render Manim Scene
         run: |
           manim -pqh scene.py MechanicalLinkage
@@ -41,4 +50,4 @@ jobs:
         with:
           name: animation-video
           path: media/videos/
-
+          
