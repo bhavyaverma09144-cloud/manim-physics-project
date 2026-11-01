@@ -29,12 +29,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Physics Simulation & Render
+      - name: Render the animation
         run: |
-          python -m src.scene
+          python -m manim -qm src/scene.py DoublePendulumScene
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: double-pendulum-video
-          path: media/videos/
+          path: media/videos/**
+          if-no-files-found: error
