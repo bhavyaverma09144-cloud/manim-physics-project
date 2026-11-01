@@ -30,7 +30,7 @@ class DoublePendulumScene(Scene):
         dot1.add_updater(lambda d: d.move_to(get_p1()))
         dot2.add_updater(lambda d: d.move_to(get_p2()))
 
-        trace = TracedPath(dot2.get_center, stroke_color=YELLOW, stroke_width=2, max_age=4.0)
+        trace = TracedPath(dot2.get_center, stroke_color=YELLOW, stroke_width=2)
 
         self.add(trace, line1, line2, dot1, dot2)
 
