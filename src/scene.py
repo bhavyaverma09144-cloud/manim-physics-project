@@ -26,7 +26,7 @@ class DoublePendulumScene(Scene):
 
         line1 = always_redraw(lambda: Line(ORIGIN, dot1.get_center(), color=WHITE))
         line2 = always_redraw(lambda: Line(dot1.get_center(), dot2.get_center(), color=WHITE))
-        
+
         dot1.add_updater(lambda d: d.move_to(get_p1()))
         dot2.add_updater(lambda d: d.move_to(get_p2()))
 
@@ -38,5 +38,9 @@ class DoublePendulumScene(Scene):
             idx.animate.set_value(len(t) - 1),
             run_time=t_max,
             rate_func=linear
-          )
-      
+        )
+
+if __name__ == "__main__":
+    from manim import config
+    config.media_dir = "media"
+    render_scene_as_movie(DoublePendulumScene())
