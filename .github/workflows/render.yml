@@ -33,7 +33,11 @@ jobs:
         run: |
           python -m manim -qm src/scene.py DoublePendulumScene
 
-      - name: Upload Artifact
+      - name: List generated media files
+        run: |
+          find media -maxdepth 5 -type f | sort || true
+
+      - name: Upload rendered video artifact
         uses: actions/upload-artifact@v4
         with:
           name: double-pendulum-video
