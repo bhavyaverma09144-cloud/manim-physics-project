@@ -1,46 +1,45 @@
-import numpy as np
-from manim import *
-from src.physics import simulate_pendulum
+name: Render Double Pendulum Animation
 
-class DoublePendulumScene(Scene):
-    def construct(self):
-        t_max = 10.0
-        fps = 30
-        t, y = simulate_pendulum(t_max=t_max, fps=fps)
-        theta1, _, theta2, _ = y
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-        L1, L2 = 2.5, 2.5
-        idx = ValueTracker(0)
+jobs:
+  build-animation:
+    runs-on: ubuntu-latest
 
-        def get_p1():
-            i = int(np.clip(idx.get_value(), 0, len(t) - 1))
-            return np.array([L1 * np.sin(theta1[i]), -L1 * np.cos(theta1[i]), 0])
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-        def get_p2():
-            i = int(np.clip(idx.get_value(), 0, len(t) - 1))
-            p1 = get_p1()
-            return p1 + np.array([L2 * np.sin(theta2[i]), -L2 * np.cos(theta2[i]), 0])
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
 
-        dot1 = Dot(point=get_p1(), color=BLUE)
-        dot2 = Dot(point=get_p2(), color=RED)
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg texlive-full libcairo2-dev libpango1.0-dev pkg-config
 
-        line1 = always_redraw(lambda: Line(ORIGIN, dot1.get_center(), color=WHITE))
-        line2 = always_redraw(lambda: Line(dot1.get_center(), dot2.get_center(), color=WHITE))
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-        dot1.add_updater(lambda d: d.move_to(get_p1()))
-        dot2.add_updater(lambda d: d.move_to(get_p2()))
+      - name: Render the animation
+        run: |
+          python -m manim -qm src/scene.py DoublePendulumScene
 
-        trace = TracedPath(dot2.get_center, stroke_color=YELLOW, stroke_width=2)
+      - name: List generated media files
+        run: |
+          find media -maxdepth 5 -type f | sort || true
 
-        self.add(trace, line1, line2, dot1, dot2)
-
-        self.play(
-            idx.animate.set_value(len(t) - 1),
-            run_time=t_max,
-            rate_func=linear
-        )
-
-if __name__ == "__main__":
-    from manim import config
-    config.media_dir = "media"
-    render_scene_as_movie(DoublePendulumScene())
+      - name: Upload rendered video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: double-pendulum-video
+          path: media/videos/**
+          if-no-files-found: error
